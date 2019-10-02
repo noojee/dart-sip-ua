@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Dart",
+            "program": "bin/main.dart",
+            "request": "launch",
+            "type": "dart"
+        }
+        , {
+            "name": "test_sdp_parser",
+            "program": "test/test_sdp_parser.dart",
+            "request": "launch",
+            "type": "dart"
+        }
+        , {
+            "name": "test websocket",
+            "program": "example/test/test2_websocket.dart",
+            "request": "launch",
+            "type": "dart"
+        }
+    ]
+}
