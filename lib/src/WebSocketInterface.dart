@@ -13,7 +13,7 @@ class WebSocketInterface implements Socket {
   var _closed = false;
   var _connected = false;
   var weight;
-  var _wsExtraHeaders;
+  Map<String, dynamic> _wsExtraHeaders;
 
   final logger = Logger('WebSocketInterface');
   debug(msg) => logger.debug(msg);
@@ -25,7 +25,7 @@ class WebSocketInterface implements Socket {
   @override
   dynamic ondata;
 
-  WebSocketInterface(url, [wsExtraHeaders]) {
+  WebSocketInterface(String url, [Map<String, dynamic> wsExtraHeaders]) {
     debug('new() [url:' + url + ']');
     this._url = url;
     var parsed_url = Grammar.parse(url, 'absoluteURI');
@@ -109,7 +109,7 @@ class WebSocketInterface implements Socket {
   }
 
   @override
-  send(message) {
+  bool send(message) {
     debug('send()');
     if (this._closed) {
       throw 'transport closed';

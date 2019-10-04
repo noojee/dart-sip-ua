@@ -68,7 +68,7 @@ class RTCSession extends EventEmitter {
   var _rtcOfferConstraints;
   MediaStream _localMediaStream;
   var _data;
-  Map<String,Dialog> _earlyDialogs;
+  Map<String, Dialog> _earlyDialogs;
   String _from_tag;
   var _to_tag;
   var _rtcAnswerConstraints;
@@ -83,7 +83,7 @@ class RTCSession extends EventEmitter {
   var _iceGatheringState;
   bool _localMediaStreamLocallyGenerated;
   bool _rtcReady;
-  var _direction;
+  String _direction;
 
   Map _referSubscribers;
   var _start_time;
@@ -94,8 +94,8 @@ class RTCSession extends EventEmitter {
   bool _localHold;
   bool _remoteHold;
 
-  var _local_identity;
-  var _remote_identity;
+  String _local_identity;
+  String _remote_identity;
 
   String _contact;
   var _tones;
@@ -105,7 +105,7 @@ class RTCSession extends EventEmitter {
   debug(msg) => logger.debug(msg);
   debugerror(error) => logger.error(error);
 
-  Function(IncomingRequest  ) receiveRequest;
+  Function(IncomingRequest) receiveRequest;
 
   RTCSession(UA ua) {
     debug('new');
@@ -195,11 +195,11 @@ class RTCSession extends EventEmitter {
 
   get contact => this._contact;
 
-  get direction => this._direction;
+  String get direction => this._direction;
 
-  get local_identity => this._local_identity;
+  String get local_identity => this._local_identity;
 
-  get remote_identity => this._remote_identity;
+  String get remote_identity => this._remote_identity;
 
   get start_time => this._start_time;
 
@@ -319,7 +319,7 @@ class RTCSession extends EventEmitter {
 
     // Set anonymous property.
     bool anonymous = options['anonymous'] ?? false;
-    Map<String,dynamic> requestParams = {'from_tag': this._from_tag};
+    Map<String, dynamic> requestParams = {'from_tag': this._from_tag};
     this._ua.contact.anonymous = anonymous;
     this._ua.contact.outbound = true;
     this._contact = this._ua.contact.toString();
@@ -677,17 +677,17 @@ class RTCSession extends EventEmitter {
   /**
    * Terminate the call.
    */
-  terminate([options]) {
+  terminate([Map<String, Object> options]) {
     debug('terminate()');
 
-    options = options?? {};
+    options = options ?? {};
 
     var cause = options['cause'] ?? DartSIP_C.causes.BYE;
     var extraHeaders = Utils.cloneArray(options['extraHeaders']);
     var body = options['body'];
 
     var cancel_reason;
-    var status_code = options['status_code'];
+    int status_code = options['status_code'];
     var reason_phrase = options['reason_phrase'];
 
     // Check Session Status.
@@ -1385,7 +1385,7 @@ class RTCSession extends EventEmitter {
     }
 
     // No established yet.
-    if (this._dialog==null) {
+    if (this._dialog == null) {
       debug('_isReadyToReOffer() | session not established yet');
 
       return false;
@@ -1446,7 +1446,7 @@ class RTCSession extends EventEmitter {
     }
 
     // Terminate early dialogs.
-     this._earlyDialogs.forEach((dialog, _) {
+    this._earlyDialogs.forEach((dialog, _) {
       this._earlyDialogs[dialog].terminate();
     });
     this._earlyDialogs.clear();
@@ -2142,7 +2142,7 @@ class RTCSession extends EventEmitter {
       this.emit('sending', {'request': this._request});
 
       request_sender.send();
-    } catch (error,s) {
+    } catch (error, s) {
       print("$error $s");
       this._failed('local', null, DartSIP_C.causes.WEBRTC_ERROR);
       if (this._status == C.STATUS_TERMINATED) {
@@ -2265,8 +2265,8 @@ class RTCSession extends EventEmitter {
 
       // Be ready for 200 with SDP after a 180/183 with SDP.
       // We created a SDP 'answer' for it, so check the current signaling state.
-      if (this._connection.signalingState == RTCSignalingState.RTCSignalingStateHaveLocalOffer)
-      {
+      if (this._connection.signalingState ==
+          RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
         try {
           var offer =
               await this._connection.createOffer(this._rtcOfferConstraints);
@@ -2278,9 +2278,8 @@ class RTCSession extends EventEmitter {
       }
 
       try {
-        
         await this._connection.setRemoteDescription(answer);
-     
+
         // Handle Session Timers.
         this._handleSessionTimersInIncomingResponse(response);
         this._accepted('remote', response);
@@ -2450,10 +2449,9 @@ class RTCSession extends EventEmitter {
         return;
       }
 
-
       // Must have SDP answer.
       if (sdpOffer != null) {
-        if (response.body !=null && response.body.trim().isNotEmpty) {
+        if (response.body != null && response.body.trim().isNotEmpty) {
           onFailed();
           return;
         } else if (response.getHeader('Content-Type') != 'application/sdp') {

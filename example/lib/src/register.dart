@@ -3,22 +3,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'sip_ua_helper.dart';
 
 class RegisterWidget extends StatefulWidget {
-  SIPUAHelper _helper;
+  final SIPUAHelper _helper;
   RegisterWidget(this._helper, {Key key}) : super(key: key);
   @override
   _MyRegisterWidget createState() => _MyRegisterWidget();
 }
 
 class _MyRegisterWidget extends State<RegisterWidget> {
-  var _password;
+  String _password;
   var _wsUri = 'wss://tryit.jssip.net:10443';
   var _sipUri = 'hello_flutter@tryit.jssip.net';
   var _displayName = 'Flutter SIP UA';
-  var _dest = 'sip:111_6ackea@tryit.jssip.net';
   SharedPreferences prefs;
-  var _registerState;
+  String _registerState;
 
-  get helper => widget._helper;
+  SIPUAHelper get helper => widget._helper;
 
   @override
   initState() {
@@ -35,29 +34,29 @@ class _MyRegisterWidget extends State<RegisterWidget> {
     helper.remove('socketState', _handleSocketState);
   }
 
-  _handleRegisterState(state, data) {
+  void _handleRegisterState(String state, Map<String, dynamic> data) {
     this.setState(() {
       _registerState = state;
     });
   }
 
-  _handleSocketState(state, data) {
+  void _handleSocketState(String state, Map<String, dynamic> data) {
     this.setState(() {
       _registerState = state;
     });
   }
 
-  _alert(context, alertFieldName) {
+  void _alert(BuildContext context, String alertFieldName) {
     showDialog<Null>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return new AlertDialog(
-          title: new Text('$alertFieldName is empty'),
-          content: new Text('Please enter $alertFieldName!'),
+        return AlertDialog(
+          title: Text('$alertFieldName is empty'),
+          content: Text('Please enter $alertFieldName!'),
           actions: <Widget>[
-            new FlatButton(
-              child: new Text('Ok'),
+            FlatButton(
+              child: Text('Ok'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -68,16 +67,18 @@ class _MyRegisterWidget extends State<RegisterWidget> {
     );
   }
 
-  _handleSave(context) {
+  void _handleSave(BuildContext context) {
     if (_wsUri == null) {
-      return _alert(context, "WebSocket URL");
+      _alert(context, "WebSocket URL");
     } else if (_sipUri == null) {
-      return _alert(context, "SIP URI");
+      _alert(context, "SIP URI");
     }
-    helper.start(_wsUri, _sipUri, _password, _displayName, {
-      'Origin': ' https://tryit.jssip.net',
-      'Host': 'tryit.jssip.net:10443'
-    });
+
+    Map<String, dynamic> wsExtraHeaders = Map<String, dynamic>();
+    wsExtraHeaders['Origin'] = ' https://tryit.jssip.net';
+    wsExtraHeaders['Host'] = 'tryit.jssip.net:10443';
+
+    helper.start(_wsUri, _sipUri, _password, _displayName, wsExtraHeaders);
   }
 
   @override
@@ -86,7 +87,7 @@ class _MyRegisterWidget extends State<RegisterWidget> {
         appBar: AppBar(
           title: Text("SIP Account"),
         ),
-        body: new Align(
+        body: Align(
             alignment: Alignment(0, 0),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
