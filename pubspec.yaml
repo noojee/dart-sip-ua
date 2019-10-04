@@ -10,10 +10,10 @@ dependencies:
   crypto: ^2.1.2
   events2:
     git:
-      url: https://github.com/cloudwebrtc/dart-events.git
+      url: https://github.com/noojee/dart-events.git
   flutter_webrtc:
     git:
-      url: https://github.com/cloudwebrtc/flutter-webrtc.git
+      url: https://github.com/noojee/flutter-webrtc.git
   parser_error: ^0.1.1
   sdp_transform:
     git:
