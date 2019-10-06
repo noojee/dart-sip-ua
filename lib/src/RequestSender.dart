@@ -137,7 +137,9 @@ class RequestSender {
               'opaque': challenge.opaque,
               'stale': challenge.stale,
               'qop': challenge.qop,
-            }))) {
+            }),
+            this._request.ruri
+            )) {
           this._eventHandlers['onReceiveResponse'](response);
           return;
         }

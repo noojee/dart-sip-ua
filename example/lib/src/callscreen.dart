@@ -27,8 +27,10 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
   var _timeLabel = '00:00';
   Timer _timer;
 
-  bool _muted = false;
+  bool _audioMuted = false;
+  bool _videoMuted = false;
   bool _hold = false;
+  String _holdOriginator;
   String _state = 'new';
 
   RTCSession get session => helper.session;
@@ -97,6 +99,27 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
   }
 
   void _handleCalllState(String state, Map<String, dynamic> data) {
+    if (state == 'hold' || state == 'unhold') {
+      _hold = state == 'hold';
+      _holdOriginator = data['originator'] as String;
+      this.setState(() {});
+      return;
+    }
+
+    if (state == 'muted') {
+      if (data['audio'] as bool) _audioMuted = true;
+      if (data['video'] as bool) _videoMuted = true;
+      this.setState(() {});
+      return;
+    }
+
+    if (state == 'unmuted') {
+      if (data['audio'] as bool) _audioMuted = false;
+      if (data['video'] as bool) _videoMuted = false;
+      this.setState(() {});
+      return;
+    }
+
     if (state != 'stream') {
       _state = state;
     }
@@ -175,16 +198,29 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
     }
   }
 
-  void _muteMic() {
-    if (_localStream != null) {
-      this.setState(() {
-        _muted = !_muted;
-      });
-      _localStream.getAudioTracks()[0].setMicrophoneMute(_muted);
+  void _muteAudio() {
+    if (_audioMuted) {
+      helper.unmute(true, false);
+    } else {
+      helper.mute(true, false);
     }
   }
 
-  void _handleHold() {}
+  void _muteVideo() {
+    if (_videoMuted) {
+      helper.unmute(false, true);
+    } else {
+      helper.mute(false, true);
+    }
+  }
+
+  void _handleHold() {
+    if (_hold) {
+      helper.unhold();
+    } else {
+      helper.hold();
+    }
+  }
 
   Widget _buildActionButtons() {
     var hangupBtn = FloatingActionButton(
@@ -225,8 +261,8 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
         {
           advanceActions.add(FloatingActionButton(
             heroTag: "mute_mic",
-            child: Icon(_muted ? Icons.mic_off : Icons.mic),
-            onPressed: () => _muteMic(),
+            child: Icon(_audioMuted ? Icons.mic_off : Icons.mic),
+            onPressed: () => _muteAudio(),
           ));
 
           if (voiceonly) {
@@ -243,15 +279,23 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
             ));
           }
 
-          advanceActions.add(FloatingActionButton(
-            heroTag: "speaker",
-            child: Icon(Icons.volume_up),
-            onPressed: () => _handleHold(),
-          ));
+          if (voiceonly) {
+            advanceActions.add(FloatingActionButton(
+              heroTag: "speaker",
+              child: Icon(Icons.volume_up),
+              onPressed: () => _handleHold(),
+            ));
+          } else {
+            advanceActions.add(FloatingActionButton(
+              heroTag: "camera_off",
+              child: Icon(_videoMuted ? Icons.videocam : Icons.videocam_off),
+              onPressed: () => _muteVideo(),
+            ));
+          }
 
           basicActions.add(FloatingActionButton(
             heroTag: "hold",
-            child: Icon(_hold ? Icons.pause : Icons.pause),
+            child: Icon(_hold ? Icons.play_arrow : Icons.pause),
             onPressed: () => _handleHold(),
           ));
 
@@ -335,7 +379,10 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
                   child: Padding(
                       padding: const EdgeInsets.all(6),
                       child: Text(
-                        voiceonly ? 'VOICE CALL' : 'VIDEO CALL',
+                        (voiceonly ? 'VOICE CALL' : 'VIDEO CALL') +
+                            (_hold
+                                ? ' PAUSED BY ${this._holdOriginator.toUpperCase()}'
+                                : ''),
                         style: TextStyle(fontSize: 24, color: Colors.black54),
                       ))),
               Center(

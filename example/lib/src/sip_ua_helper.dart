@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:sip_ua/sip_ua.dart';
 import 'package:events2/events2.dart';
 import 'package:sip_ua/src/RTCSession.dart';
+import 'package:sip_ua/src/Message.dart';
 
 class SIPUAHelper extends EventEmitter {
   UA _ua;
@@ -202,13 +203,13 @@ class SIPUAHelper extends EventEmitter {
         'iceServers': [
           {'url': 'stun:stun.l.google.com:19302'},
           /*
-          * turn server configuration example.
-          {
-            'url': 'turn:123.45.67.89:3478',
-            'username': 'change_to_real_user',
-            'credential': 'change_to_real_secret'
-          },
-          */
+                  * turn server configuration example.
+                  {
+                    'url': 'turn:123.45.67.89:3478',
+                    'username': 'change_to_real_user',
+                    'credential': 'change_to_real_secret'
+                  },
+                  */
         ]
       },
       'mediaConstraints': {
@@ -258,11 +259,44 @@ class SIPUAHelper extends EventEmitter {
     this.emit('registerState', state, data);
   }
 
-  void _handleUAState(String state, Map<String, dynamic> data) {
-    this.emit('uaState', state, data);
+  void hold() {
+    if (_session != null) {
+      _session.hold();
+    }
+  }
+
+  void unhold() {
+    if (_session != null) {
+      _session.unhold();
+    }
+  }
+
+  void mute([bool audio = true, bool video = true]) {
+    if (_session != null) {
+      _session.mute(audio, video);
+    }
+  }
+
+  void unmute([bool audio = true, bool video = true]) {
+    if (_session != null) {
+      _session.unmute(audio, video);
+    }
   }
 
   void _handleCallState(String state, Map<String, dynamic> data) {
     this.emit('callState', state, data);
+  }
+
+  void _handleUAState(String state, Map<String, dynamic> data) {
+    this.emit('uaState', state, data);
+  }
+
+  Message sendMessage(String target, String body,
+      [Map<String, dynamic> options]) {
+    return this._ua.sendMessage(target, body, options);
+  }
+
+  void terminateSessions(Map<String, dynamic> options) {
+    this._ua.terminateSessions(options);
   }
 }

@@ -11,9 +11,13 @@ class RegisterWidget extends StatefulWidget {
 
 class _MyRegisterWidget extends State<RegisterWidget> {
   String _password;
-  var _wsUri = 'wss://tryit.jssip.net:10443';
-  var _sipUri = 'hello_flutter@tryit.jssip.net';
-  var _displayName = 'Flutter SIP UA';
+  String _wsUri;
+  String _sipUri;
+  String _displayName;
+  Map<String, String> _wsExtraHeaders = {
+    'Origin': ' https://tryit.jssip.net',
+    'Host': 'tryit.jssip.net:10443'
+  };
   SharedPreferences prefs;
   String _registerState;
 
@@ -25,6 +29,7 @@ class _MyRegisterWidget extends State<RegisterWidget> {
     _registerState = helper.registerState;
     helper.on('registerState', _handleRegisterState);
     helper.on('socketState', _handleSocketState);
+    _loadSettings();
   }
 
   @override
@@ -32,6 +37,24 @@ class _MyRegisterWidget extends State<RegisterWidget> {
     super.deactivate();
     helper.remove('registerState', _handleRegisterState);
     helper.remove('socketState', _handleSocketState);
+    _saveSettings();
+  }
+
+  void _loadSettings() async {
+    prefs = await SharedPreferences.getInstance();
+    _wsUri = prefs.getString('ws_uri') ?? 'wss://tryit.jssip.net:10443';
+    _sipUri = prefs.getString('sip_uri') ?? 'hello_flutter@tryit.jssip.net';
+    _displayName = prefs.getString('display_name') ?? 'Flutter SIP UA';
+    _password = prefs.getString('password');
+    await prefs.commit();
+    this.setState(() {});
+  }
+
+  void _saveSettings() {
+    prefs.setString('ws_uri', _wsUri);
+    prefs.setString('sip_uri', _sipUri);
+    prefs.setString('display_name', _displayName);
+    prefs.setString('password', _password);
   }
 
   void _handleRegisterState(String state, Map<String, dynamic> data) {
@@ -74,11 +97,9 @@ class _MyRegisterWidget extends State<RegisterWidget> {
       _alert(context, "SIP URI");
     }
 
-    Map<String, dynamic> wsExtraHeaders = Map<String, dynamic>();
-    wsExtraHeaders['Origin'] = ' https://tryit.jssip.net';
-    wsExtraHeaders['Host'] = 'tryit.jssip.net:10443';
-
-    helper.start(_wsUri, _sipUri, _password, _displayName, wsExtraHeaders);
+    bool addExtraHeaders = _wsExtraHeaders.isNotEmpty;
+    helper.start(_wsUri, _sipUri, _password, _displayName,
+        addExtraHeaders ? _wsExtraHeaders : null);
   }
 
   @override
@@ -178,7 +199,7 @@ class _MyRegisterWidget extends State<RegisterWidget> {
                             contentPadding: EdgeInsets.all(10.0),
                             border: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.black12)),
-                            hintText: '[Empty]',
+                            hintText: _password ?? '[Empty]',
                           ),
                           onChanged: (value) {
                             setState(() {
