@@ -4,6 +4,7 @@ import 'package:flutter_webrtc/webrtc.dart';
 import 'sip_ua_helper.dart';
 import 'package:sip_ua/src/RTCSession.dart';
 import 'package:sip_ua/src/NameAddrHeader.dart';
+import 'package:sip_ua/src/event_manager/event_manager.dart';
 
 class CallScreenWidget extends StatefulWidget {
   final SIPUAHelper _helper;
@@ -95,36 +96,36 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
   }
 
   void _bindEventListeners() {
-    helper.on('callState', _handleCalllState);
+    helper.on(EventCallState(), _handleCalllState);
   }
 
-  void _handleCalllState(String state, Map<String, dynamic> data) {
-    if (state == 'hold' || state == 'unhold') {
-      _hold = state == 'hold';
-      _holdOriginator = data['originator'] as String;
+  void _handleCalllState(EventCallState data) {
+    if (data.state == 'hold' || data.state == 'unhold') {
+      _hold = data.state == 'hold';
+      _holdOriginator = data.originator;
       this.setState(() {});
       return;
     }
 
-    if (state == 'muted') {
-      if (data['audio'] as bool) _audioMuted = true;
-      if (data['video'] as bool) _videoMuted = true;
+    if (data.state == 'muted') {
+      if (data.audio) _audioMuted = true;
+      if (data.video) _videoMuted = true;
       this.setState(() {});
       return;
     }
 
-    if (state == 'unmuted') {
-      if (data['audio'] as bool) _audioMuted = false;
-      if (data['video'] as bool) _videoMuted = false;
+    if (data.state == 'unmuted') {
+      if (data.audio) _audioMuted = false;
+      if (data.video) _videoMuted = false;
       this.setState(() {});
       return;
     }
 
-    if (state != 'stream') {
-      _state = state;
+    if (data.state != 'stream') {
+      _state = data.state;
     }
 
-    switch (state) {
+    switch (data.state) {
       case 'stream':
         _handelStreams(data);
         break;
@@ -141,7 +142,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
   }
 
   void _removeEventListeners() {
-    helper.remove('callState', _handleCalllState);
+    helper.remove(EventCallState(), _handleCalllState);
   }
 
   void _backToDialPad() {
@@ -151,15 +152,15 @@ class _MyCallScreenWidget extends State<CallScreenWidget> {
     });
   }
 
-  void _handelStreams(Map<String, dynamic> event) async {
-    var stream = event['stream'] as MediaStream;
-    if (event['originator'] == 'local') {
+  void _handelStreams(EventCallState event) async {
+    var stream = event.stream;
+    if (event.originator == 'local') {
       if (_localRenderer != null) {
         _localRenderer.srcObject = stream;
       }
       _localStream = stream;
     }
-    if (event['originator'] == 'remote') {
+    if (event.originator == 'remote') {
       if (_remoteRenderer != null) {
         _remoteRenderer.srcObject = stream;
       }
