@@ -800,8 +800,10 @@ class RTCSession extends EventManager {
     }
   }
 
-  sendDTMF(tones, options) {
+  sendDTMF(tones, [options]) {
     logger.debug('sendDTMF() | tones: ${tones.toString()}');
+
+    options = options ?? {};
 
     var position = 0;
     var duration = options['duration'] ?? null;
@@ -830,7 +832,7 @@ class RTCSession extends EventManager {
     }
 
     // Check duration.
-    if (duration && !Utils.isDecimal(duration)) {
+    if (duration != null && !Utils.isDecimal(duration)) {
       throw new Exceptions.TypeError(
           'Invalid tone duration: ${duration.toString()}');
     } else if (duration == null) {
@@ -849,7 +851,7 @@ class RTCSession extends EventManager {
     options['duration'] = duration;
 
     // Check interToneGap.
-    if (interToneGap && !Utils.isDecimal(interToneGap)) {
+    if (interToneGap != null && !Utils.isDecimal(interToneGap)) {
       throw new Exceptions.TypeError(
           'Invalid interToneGap: ${interToneGap.toString()}');
     } else if (interToneGap == null) {
@@ -874,7 +876,7 @@ class RTCSession extends EventManager {
       var timeout;
 
       if (this._status == C.STATUS_TERMINATED ||
-          !this._tones ||
+          this._tones == null ||
           position >= this._tones.length) {
         // Stop sending DTMF.
         this._tones = null;
@@ -891,11 +893,12 @@ class RTCSession extends EventManager {
       } else {
         var dtmf = new RTCSession_DTMF.DTMF(this);
 
-        options['eventHandlers'] = {
-          'onFailed': () {
-            this._tones = null;
-          }
-        };
+        EventManager eventHandlers = EventManager();
+        eventHandlers.on(EventFailed(), (EventFailed event) {
+          this._tones = null;
+        });
+
+        options['eventHandlers'] = eventHandlers;
         dtmf.send(tone, options);
         timeout = duration + interToneGap;
       }
@@ -1800,7 +1803,7 @@ class RTCSession extends EventManager {
       return;
     }
 
-    if (request.body == null || request.body.length == 0) {
+    if (request.body == null || request.body.isEmpty) {
       sendAnswer(null);
       return;
     }
@@ -2219,7 +2222,7 @@ class RTCSession extends EventManager {
       this._status = C.STATUS_1XX_RECEIVED;
       this._progress('remote', response);
 
-      if (response.body == null || response.body.length == 0) {
+      if (response.body == null || response.body.isEmpty) {
         return;
       }
 
@@ -2240,7 +2243,7 @@ class RTCSession extends EventManager {
       // 2XX
       this._status = C.STATUS_CONFIRMED;
 
-      if (response.body == null || response.body.length == 0) {
+      if (response.body == null || response.body.isEmpty) {
         this._acceptAndTerminate(response, 400, DartSIP_C.causes.MISSING_SDP);
         this._failed('remote', null, null, response,
             DartSIP_C.causes.BAD_MEDIA_DESCRIPTION);
@@ -2564,7 +2567,7 @@ class RTCSession extends EventManager {
       return sdpInput;
     }
 
-    Map<String, dynamic> sdp = sdp_transform.parse(sdpInput);
+    Map<dynamic, dynamic> sdp = sdp_transform.parse(sdpInput);
 
     // Local hold.
     if (this._localHold && !this._remoteHold) {
@@ -2729,7 +2732,7 @@ class RTCSession extends EventManager {
   _toggleMuteAudio(mute) {
     List<MediaStream> streams = this._connection.getLocalStreams();
     streams.forEach((stream) {
-      if (stream.getAudioTracks().length > 0) {
+      if (stream.getAudioTracks().isNotEmpty) {
         var track = stream.getAudioTracks()[0];
         track.enabled = !mute;
       }
@@ -2739,7 +2742,7 @@ class RTCSession extends EventManager {
   _toggleMuteVideo(mute) {
     List<MediaStream> streams = this._connection.getLocalStreams();
     streams.forEach((stream) {
-      if (stream.getVideoTracks().length > 0) {
+      if (stream.getVideoTracks().isNotEmpty) {
         var track = stream.getVideoTracks()[0];
         track.enabled = !mute;
       }

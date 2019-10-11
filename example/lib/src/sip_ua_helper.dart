@@ -5,12 +5,13 @@ import 'package:sip_ua/src/Message.dart';
 import 'package:sip_ua/src/RTCSession.dart';
 import 'package:sip_ua/src/SIPMessage.dart';
 
+import 'package:sip_ua/src/logger.dart';
 import 'package:sip_ua/src/event_manager/event_manager.dart';
 
 class SIPUAHelper extends EventManager {
   UA _ua;
   Settings _settings;
-  final logger = Log();
+  final Log logger = Log();
   RTCSession _session;
   bool _registered = false;
   bool _connected = false;
@@ -281,6 +282,12 @@ class SIPUAHelper extends EventManager {
   void unmute([bool audio = true, bool video = true]) {
     if (_session != null) {
       _session.unmute(audio, video);
+    }
+  }
+
+  void sendDTMF(String tones) {
+    if (_session != null) {
+      _session.sendDTMF(tones);
     }
   }
 
