@@ -31,43 +31,6 @@ abstract class EventType {
 
 class EventStateChanged extends EventType {}
 
-class EventSocketState extends EventType {
-  String state;
-  IncomingMessage response;
-  EventSocketState({this.state, this.response});
-}
-
-class EventRegisterState extends EventType {
-  String state;
-  IncomingMessage response;
-  EventRegisterState({this.state, this.response});
-}
-
-class EventCallState extends EventType {
-  String state;
-  // dynamic response;
-  String originator;
-  MediaStream stream;
-  bool audio;
-  bool video;
-  EventCallState(
-      {this.state,
-      dynamic response,
-      this.originator,
-      this.stream,
-      this.audio,
-      this.video});
-}
-
-class EventUaState extends EventType {
-  String state;
-  // dynamic response;
-  // String originator;
-  // MediaStream stream;
-  EventUaState(
-      {this.state, dynamic response, String originator, MediaStream stream});
-}
-
 class EventNewTransaction extends EventType {
   // TransactionBase transaction;
   EventNewTransaction({TransactionBase transaction});
