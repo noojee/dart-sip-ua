@@ -1,4 +1,5 @@
-export 'src/Config.dart';
-export 'src/UA.dart';
-export 'src/WebSocketInterface.dart';
-export 'src/logger.dart';
+/// only expose the bare minimum of internals required
+export 'src/enum_helper.dart';
+export 'src/sip_ua_helper.dart';
+export 'src/RTCSession.dart';
+export 'src/NameAddrHeader.dart';
