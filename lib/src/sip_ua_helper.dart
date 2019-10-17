@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter_webrtc/media_stream.dart';
-import 'package:sip_ua/sip_ua.dart';
-import 'package:sip_ua/src/Message.dart';
-import 'package:sip_ua/src/RTCSession.dart';
-import 'package:sip_ua/src/logger.dart';
-import 'package:sip_ua/src/event_manager/event_manager.dart';
+
+import 'Config.dart';
+import 'Message.dart';
+import 'RTCSession.dart';
+import 'UA.dart';
+import 'WebSocketInterface.dart';
+import 'logger.dart';
+import 'event_manager/event_manager.dart';
 
 class SIPUAHelper extends EventManager {
   UA _ua;
@@ -128,7 +131,7 @@ class SIPUAHelper extends EventManager {
 
       this._ua.start();
     } catch (e, s) {
-      logger.error(e.toString(), s);
+      logger.error(e.toString(), null, s);
     }
   }
 

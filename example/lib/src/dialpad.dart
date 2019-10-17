@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'sip_ua_helper.dart';
+
 import 'widgets/numpad.dart';
-import 'package:sip_ua/src/enum_helper.dart';
+import 'package:sip_ua/sip_ua.dart';
 
 class DialPadWidget extends StatefulWidget {
   final SIPUAHelper _helper;

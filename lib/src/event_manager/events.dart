@@ -7,6 +7,7 @@ import '../RTCSession/DTMF.dart';
 import '../RTCSession/Info.dart';
 import '../SIPMessage.dart';
 import '../Transport.dart';
+import '../WebSocketInterface.dart';
 import '../transactions/transaction_base.dart';
 
 /// each EventType class can implement this method and the EventManager will call it before
