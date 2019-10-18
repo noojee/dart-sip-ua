@@ -8,6 +8,7 @@ import 'UA.dart';
 import 'WebSocketInterface.dart';
 import 'logger.dart';
 import 'event_manager/event_manager.dart';
+import 'stack_trace_nj.dart';
 
 class SIPUAHelper extends EventManager {
   UA _ua;
@@ -18,13 +19,32 @@ class SIPUAHelper extends EventManager {
   bool _connected = false;
   RegistrationStateEnum _registerState = RegistrationStateEnum.NONE;
 
-  RTCSession get session => _session;
-
   bool get registered => _registered;
 
   bool get connected => _connected;
 
   RegistrationStateEnum get registerState => _registerState;
+
+  String get remote_identity {
+    if (_session != null && _session.remote_identity != null) {
+      if (_session.remote_identity.display_name != null) {
+        return _session.remote_identity.display_name;
+      } else {
+        if (_session.remote_identity.uri != null &&
+            _session.remote_identity.uri.user != null) {
+          return _session.remote_identity.uri.user;
+        }
+      }
+    }
+    return "";
+  }
+
+  String get direction {
+    if (_session != null && _session.direction != null) {
+      return _session.direction.toUpperCase();
+    }
+    return "";
+  }
 
   void stop() async {
     await this._ua.stop();
@@ -43,7 +63,8 @@ class SIPUAHelper extends EventManager {
       _session = _ua.call(uri, this._options(voiceonly));
       return _session;
     } else {
-      logger.error("Not connected, you will need to register.");
+      logger.error(
+          "Not connected, you will need to register.", null, StackTraceNJ());
     }
     return null;
   }
@@ -65,7 +86,7 @@ class SIPUAHelper extends EventManager {
       String displayName,
       Map<String, dynamic> wsExtraHeaders]) async {
     if (this._ua != null) {
-      logger.error(
+      logger.warn(
           'UA instance already exist!, stopping UA and creating a new one...');
       this._ua.stop();
     }
@@ -173,11 +194,13 @@ class SIPUAHelper extends EventManager {
     });
     eventHandlers.on(EventHold(), (EventHold e) {
       logger.debug('call hold');
-      _notifyCallStateListeners(CallState(CallStateEnum.HOLD));
+      _notifyCallStateListeners(
+          CallState(CallStateEnum.HOLD, originator: e.originator));
     });
     eventHandlers.on(EventUnhold(), (EventUnhold e) {
       logger.debug('call unhold');
-      _notifyCallStateListeners(CallState(CallStateEnum.UNHOLD));
+      _notifyCallStateListeners(
+          CallState(CallStateEnum.UNHOLD, originator: e.originator));
     });
     eventHandlers.on(EventMuted(), (EventMuted e) {
       logger.debug('call muted');

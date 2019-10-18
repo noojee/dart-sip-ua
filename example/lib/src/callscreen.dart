@@ -21,9 +21,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
   EdgeInsetsGeometry _localVideoMargin;
   MediaStream _localStream;
   MediaStream _remoteStream;
-  String _direction;
-  NameAddrHeader _local_identity;
-  NameAddrHeader _remote_identity;
+
   bool _showNumPad = false;
 
   String _timeLabel = '00:00';
@@ -36,16 +34,15 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
   String _holdOriginator;
   CallStateEnum _state = CallStateEnum.NONE;
 
-  RTCSession get session => helper.session;
-
   SIPUAHelper get helper => widget._helper;
 
   bool get voiceonly =>
       (_localStream == null || _localStream.getVideoTracks().isEmpty) &&
       (_remoteStream == null || _remoteStream.getVideoTracks().isEmpty);
 
-  String get remote_identity =>
-      _remote_identity.display_name ?? _remote_identity.uri.user;
+  String get remote_identity => helper.remote_identity;
+
+  String get direction => helper.direction;
 
   @override
   initState() {
@@ -53,9 +50,6 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     _initRenderers();
     helper.addSipUaHelperListener(this);
     _startTimer();
-    _direction = session.direction.toUpperCase();
-    _local_identity = session.local_identity;
-    _remote_identity = session.remote_identity;
   }
 
   @override
@@ -269,7 +263,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     switch (_state) {
       case CallStateEnum.NONE:
       case CallStateEnum.CONNECTING:
-        if (_direction == 'INCOMING') {
+        if (direction == 'INCOMING') {
           basicActions.add(ActionButton(
             title: "Accept",
             fillColor: Colors.green,
@@ -444,7 +438,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     return Scaffold(
         appBar: AppBar(
             automaticallyImplyLeading: false,
-            title: Text('[$_direction] ${EnumHelper.getName(_state)}')),
+            title: Text('[$direction] ${EnumHelper.getName(_state)}')),
         body: Container(
           child: _buildContent(),
         ),
