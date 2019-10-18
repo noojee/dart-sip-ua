@@ -194,11 +194,13 @@ class SIPUAHelper extends EventManager {
     });
     eventHandlers.on(EventHold(), (EventHold e) {
       logger.debug('call hold');
-      _notifyCallStateListeners(CallState(CallStateEnum.HOLD));
+      _notifyCallStateListeners(
+          CallState(CallStateEnum.HOLD, originator: e.originator));
     });
     eventHandlers.on(EventUnhold(), (EventUnhold e) {
       logger.debug('call unhold');
-      _notifyCallStateListeners(CallState(CallStateEnum.UNHOLD));
+      _notifyCallStateListeners(
+          CallState(CallStateEnum.UNHOLD, originator: e.originator));
     });
     eventHandlers.on(EventMuted(), (EventMuted e) {
       logger.debug('call muted');
