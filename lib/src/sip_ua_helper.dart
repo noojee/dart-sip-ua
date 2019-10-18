@@ -16,7 +16,7 @@ class SIPUAHelper extends EventManager {
   RTCSession _session;
   bool _registered = false;
   bool _connected = false;
-  RegistrationStateEnum _registerState = RegistrationStateEnum.NEW;
+  RegistrationStateEnum _registerState = RegistrationStateEnum.NONE;
 
   RTCSession get session => _session;
 
@@ -330,7 +330,7 @@ enum CallStateEnum {
   CONFIRMED,
   HOLD,
   UNHOLD,
-  NEW,
+  NONE,
   CALL_INITIATION
 }
 
@@ -351,5 +351,5 @@ enum RegistrationStateEnum {
   REGISTRATION_FAILED,
   REGISTERED,
   UNREGISTERED,
-  NEW,
+  NONE,
 }

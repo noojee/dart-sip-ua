@@ -34,7 +34,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
   bool _speakerOn = false;
   bool _hold = false;
   String _holdOriginator;
-  CallStateEnum _state = CallStateEnum.NEW;
+  CallStateEnum _state = CallStateEnum.NONE;
 
   RTCSession get session => helper.session;
 
@@ -144,7 +144,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
       case CallStateEnum.CONFIRMED:
       case CallStateEnum.HOLD:
       case CallStateEnum.UNHOLD:
-      case CallStateEnum.NEW:
+      case CallStateEnum.NONE:
       case CallStateEnum.CALL_INITIATION:
         break;
     }
@@ -267,7 +267,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     var advanceActions = <Widget>[];
 
     switch (_state) {
-      case CallStateEnum.NEW:
+      case CallStateEnum.NONE:
       case CallStateEnum.CONNECTING:
         if (_direction == 'INCOMING') {
           basicActions.add(ActionButton(
