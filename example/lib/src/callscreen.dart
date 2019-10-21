@@ -232,7 +232,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     this.setState(() {
       //_showNumPad = !_showNumPad;
     });
-    helper.sendDTMF('1');
+    helper.sendDTMF('4654');
   }
 
   void _toggleSpeaker() {
