@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import '../sip_ua.dart';
 import 'Config.dart' as config;
 import 'Config.dart';
@@ -319,11 +317,11 @@ class UA extends EventManager {
     if (num_transactions == 0 && num_sessions == 0) {
       this._transport.disconnect();
     } else {
-      this._closeTimer = Timer(Duration(seconds: 2), () {
+      this._closeTimer = setTimeout(() {
         logger.error("Closing connection");
         this._closeTimer = null;
         this._transport.disconnect();
-      });
+      }, 2000);
     }
   }
 
