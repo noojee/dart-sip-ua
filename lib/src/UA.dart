@@ -318,7 +318,7 @@ class UA extends EventManager {
       this._transport.disconnect();
     } else {
       this._closeTimer = setTimeout(() {
-        logger.error("Closing connection");
+        logger.info("Closing connection");
         this._closeTimer = null;
         this._transport.disconnect();
       }, 2000);
