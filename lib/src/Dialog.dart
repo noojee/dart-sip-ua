@@ -4,6 +4,7 @@ import 'Dialog/RequestSender.dart';
 import 'Exceptions.dart' as Exceptions;
 import 'RTCSession.dart';
 import 'SIPMessage.dart' as SIPMessage;
+import 'SIPMessage.dart';
 import 'UA.dart';
 import 'Utils.dart' as Utils;
 import 'event_manager/event_manager.dart';
@@ -165,7 +166,7 @@ class Dialog {
     return request;
   }
 
-  receiveRequest(request) {
+  receiveRequest(IncomingRequest request) {
     // Check in-dialog request.
     if (!this._checkInDialogRequest(request)) {
       return;
@@ -246,19 +247,21 @@ class Dialog {
         return false;
       } else {
         this._uas_pending_reply = true;
-        var stateChanged = () {
+        var stateChanged = (EventStateChanged event) {
           if (request.server_transaction.state == TransactionState.ACCEPTED ||
               request.server_transaction.state == TransactionState.COMPLETED ||
               request.server_transaction.state == TransactionState.TERMINATED) {
             this._uas_pending_reply = false;
           }
         };
-        request.server_transaction.once('stateChanged', stateChanged);
+        request.server_transaction
+            .on(EventStateChanged(), stateChanged, once: true);
       }
 
       // RFC3261 12.2.2 Replace the dialog's remote target URI if the request is accepted.
       if (request.hasHeader('contact')) {
-        request.server_transaction.on('stateChanged', () {
+        request.server_transaction.on(EventStateChanged(),
+            (EventStateChanged event) {
           if (request.server_transaction.state == TransactionState.ACCEPTED) {
             this._remote_target = request.parseHeader('contact').uri;
           }
@@ -267,7 +270,8 @@ class Dialog {
     } else if (request.method == SipMethod.NOTIFY) {
       // RFC6665 3.2 Replace the dialog's remote target URI if the request is accepted.
       if (request.hasHeader('contact')) {
-        request.server_transaction.on('stateChanged', () {
+        request.server_transaction.on(EventStateChanged(),
+            (EventStateChanged event) {
           if (request.server_transaction.state == TransactionState.COMPLETED) {
             this._remote_target = request.parseHeader('contact').uri;
           }
