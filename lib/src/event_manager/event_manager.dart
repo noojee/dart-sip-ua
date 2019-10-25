@@ -23,7 +23,7 @@ export 'events.dart';
 /// });
 class EventManager {
   final logger = new Log();
-  Map<Type, List<dynamic>> listeners = Map();
+  Map<Type, List<HandlerWrapper>> listeners = Map();
 
   /// returns true if there are any listeners associated with the EventType for this instance of EventManager
   bool hasListeners(EventType event) {
@@ -44,22 +44,23 @@ class EventManager {
   /// on(EventCallState(),(EventCallState event){
   ///  -- do something here
   /// });
-  void on<T extends EventType>(T eventType, void Function(T event) listener) {
+  void on<T extends EventType>(T eventType, void Function(T event) listener,
+      {bool once}) {
     assert(listener != null, "Null listener");
     assert(eventType != null, "Null eventType");
-    _addListener(eventType.runtimeType, listener);
+    _addListener(eventType.runtimeType, HandlerWrapper(listener, once));
   }
 
   /// It isn't possible to have type constraints here on the listener,
   /// BUT very importantly this method is private and
   /// all the methods that call it enforce the types!!!!
-  void _addListener(Type runtimeType, dynamic listener) {
+  void _addListener(Type runtimeType, HandlerWrapper listener) {
     assert(listener != null, "Null listener");
     assert(runtimeType != null, "Null runtimeType");
     try {
-      List<dynamic> targets = listeners[runtimeType];
+      List<HandlerWrapper> targets = listeners[runtimeType];
       if (targets == null) {
-        targets = new List<dynamic>();
+        targets = new List<HandlerWrapper>();
         listeners[runtimeType] = targets;
       }
       targets.remove(listener);
@@ -80,12 +81,18 @@ class EventManager {
 
   void remove<T extends EventType>(
       T eventType, void Function(T event) listener) {
-    List<dynamic> targets = listeners[eventType.runtimeType];
+    List<HandlerWrapper> targets = listeners[eventType.runtimeType];
     if (targets == null) {
       return;
     }
     //    logger.warn("removing $eventType on $listener");
-    if (!targets.remove(listener)) {
+    HandlerWrapper ref;
+    targets.forEach((f) {
+      if (f.func == listener) {
+        ref = f;
+      }
+    });
+    if (ref != null && !targets.remove(ref)) {
       logger.warn("Failed to remove any listeners for EventType $eventType");
     }
   }
@@ -97,16 +104,28 @@ class EventManager {
 
     if (targets != null) {
       // avoid concurrent modification
-      List<dynamic> copy = List.from(targets);
+      List<HandlerWrapper> copy = List.from(targets);
 
       copy.forEach((target) {
         try {
           //   logger.warn("invoking $event on $target");
-          target(event);
+          target.func(event);
+          if (target.once != null && target.once) {
+            Log.w("Removing listener as requested");
+            remove(event, target.func);
+          }
         } catch (e, s) {
           logger.error(e.toString(), null, s);
         }
       });
     }
   }
+}
+
+class HandlerWrapper {
+  bool once;
+  //void Function<E extends EventType>(E event) func;
+  dynamic func;
+
+  HandlerWrapper(this.func, [this.once]);
 }
