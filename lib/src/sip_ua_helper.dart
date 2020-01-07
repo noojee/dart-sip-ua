@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'package:flutter_webrtc/media_stream.dart';
+import 'package:flutter_webrtc/webrtc.dart';
 import 'package:logger/logger.dart';
 
-import 'Config.dart';
-import 'Message.dart';
-import 'RTCSession.dart';
-import 'UA.dart';
-import 'WebSocketInterface.dart';
+import 'config.dart';
+import 'message.dart';
+import 'rtc_session.dart';
+import 'socket.dart';
+import 'ua.dart';
+import 'websocket_interface.dart';
 import 'logger.dart';
 import 'event_manager/event_manager.dart';
 import 'stack_trace_nj.dart';
@@ -14,23 +15,33 @@ import 'stack_trace_nj.dart';
 class SIPUAHelper extends EventManager {
   UA _ua;
   Settings _settings;
+  UaSettings _uaSettings;
   final Log logger = Log();
   RTCSession _session;
-  bool _registered = false;
-  bool _connected = false;
-  RegistrationStateEnum _registerState = RegistrationStateEnum.NONE;
-
-  bool get registered => _registered;
-
-  bool get connected => _connected;
-
-  RegistrationStateEnum get registerState => _registerState;
+  RegistrationState _registerState =
+      RegistrationState(state: RegistrationStateEnum.NONE);
 
   SIPUAHelper() {
     Log.loggingLevel = Level.debug;
   }
 
   set loggingLevel(Level loggingLevel) => Log.loggingLevel = loggingLevel;
+
+  bool get registered {
+    if (this._ua != null) {
+      return this._ua.isRegistered();
+    }
+    return false;
+  }
+
+  bool get connected {
+    if (this._ua != null) {
+      return this._ua.isConnected();
+    }
+    return false;
+  }
+
+  RegistrationState get registerState => _registerState;
 
   String get remote_identity {
     if (_session != null && _session.remote_identity != null) {
@@ -67,25 +78,18 @@ class SIPUAHelper extends EventManager {
     this._ua.register();
   }
 
-  bool isRegistered() {
-    if (this._ua != null) {
-      return this._ua.isRegistered();
-    }
-    return false;
-  }
-
   void unregister([bool all = true]) {
     if (this._ua != null) {
-      assert(!this._ua.isRegistered(), "ERROR: you must call register first.");
+      assert(!registered, "ERROR: you must call register first.");
       this._ua.unregister(all: all);
     } else {
       Log.e("ERROR: unregister called, you must call start first.");
     }
   }
 
-  Future<RTCSession> call(String uri, [bool voiceonly = false]) async {
+  Future<RTCSession> call(String target, [bool voiceonly = false]) async {
     if (_ua != null && _ua.isConnected()) {
-      _session = _ua.call(uri, this._options(voiceonly));
+      _session = _ua.call(target, this._options(voiceonly));
       return _session;
     } else {
       logger.error(
@@ -100,72 +104,83 @@ class SIPUAHelper extends EventManager {
     }
   }
 
+  void refer(String target) {
+    if (_session != null) {
+      var refer = _session.refer(target);
+      refer.on(EventReferTrying(), (EventReferTrying data) {});
+      refer.on(EventReferProgress(), (EventReferProgress data) {});
+      refer.on(EventReferAccepted(), (EventReferAccepted data) {
+        _session.terminate();
+      });
+      refer.on(EventReferFailed(), (EventReferFailed data) {});
+    }
+  }
+
   void hangup() {
     if (_session != null) {
       _session.terminate();
     }
   }
 
-  void start(String wsUrl, String uri,
-      [String password,
-      String displayName,
-      Map<String, dynamic> wsExtraHeaders]) async {
+  void start(UaSettings uaSettings) async {
     if (this._ua != null) {
       logger.warn(
           'UA instance already exist!, stopping UA and creating a new one...');
       this._ua.stop();
     }
+
+    _uaSettings = uaSettings;
+
     _settings = Settings();
-    var socket = WebSocketInterface(wsUrl, wsExtraHeaders);
+    var socket = WebSocketInterface(
+        uaSettings.webSocketUrl, uaSettings.webSocketExtraHeaders);
     _settings.sockets = [socket];
-    _settings.uri = uri;
-    _settings.password = password;
-    _settings.display_name = displayName;
+    _settings.uri = uaSettings.uri;
+    _settings.password = uaSettings.password;
+    _settings.display_name = uaSettings.displayName;
+    _settings.authorization_user = uaSettings.authorizationUser;
 
     try {
       this._ua = UA(_settings);
-      this._ua.on(EventConnecting(), (EventConnecting event) {
+      this._ua.on(EventSocketConnecting(), (EventSocketConnecting event) {
         logger.debug('connecting => ' + event.toString());
-        _notifyRegsistrationStateListeners(
-            RegistrationStateEnum.CONNECTING, '');
+        _notifyTransportStateListeners(
+            TransportState(TransportStateEnum.CONNECTING));
       });
 
-      this._ua.on(EventConnected(), (EventConnected event) {
+      this._ua.on(EventSocketConnected(), (EventSocketConnected event) {
         logger.debug('connected => ' + event.toString());
-        _notifyRegsistrationStateListeners(RegistrationStateEnum.CONNECTED, '');
-        _connected = true;
+        _notifyTransportStateListeners(
+            TransportState(TransportStateEnum.CONNECTED));
       });
 
-      this._ua.on(EventDisconnected(), (EventDisconnected event) {
-        logger.debug('disconnected => ' + event.toString());
-        _notifyRegsistrationStateListeners(
-            RegistrationStateEnum.DISCONNECTED, '');
-        _connected = false;
+      this._ua.on(EventSocketDisconnected(), (EventSocketDisconnected event) {
+        logger.debug('disconnected => ' + (event.cause.toString()));
+        _notifyTransportStateListeners(TransportState(
+            TransportStateEnum.DISCONNECTED,
+            cause: event.cause));
       });
 
       this._ua.on(EventRegistered(), (EventRegistered event) {
-        logger.debug('registered => ' + event.toString());
-        _registered = true;
-        _registerState = RegistrationStateEnum.REGISTERED;
-        _notifyRegsistrationStateListeners(
-            RegistrationStateEnum.REGISTERED, '');
+        logger.debug('registered => ' + event.cause.toString());
+        _registerState = RegistrationState(
+            state: RegistrationStateEnum.REGISTERED, cause: event.cause);
+        _notifyRegsistrationStateListeners(_registerState);
       });
 
       this._ua.on(EventUnregister(), (EventUnregister event) {
-        logger.debug('unregistered => ' + event.toString());
-        _registerState = RegistrationStateEnum.UNREGISTERED;
-        _registered = false;
-        _notifyRegsistrationStateListeners(
-            RegistrationStateEnum.UNREGISTERED, '');
+        logger.debug('unregistered => ' + event.cause.toString());
+        _registerState = RegistrationState(
+            state: RegistrationStateEnum.UNREGISTERED, cause: event.cause);
+        _notifyRegsistrationStateListeners(_registerState);
       });
 
       this._ua.on(EventRegistrationFailed(), (EventRegistrationFailed event) {
-        logger.error('registrationFailed => ' + (event.cause));
-        _registerState = RegistrationStateEnum
-            .REGISTRATION_FAILED; //'registrationFailed[${event.cause}]';
-        _registered = false;
-        _notifyRegsistrationStateListeners(
-            RegistrationStateEnum.REGISTRATION_FAILED, event.cause);
+        logger.debug('registrationFailed => ' + (event.cause.toString()));
+        _registerState = RegistrationState(
+            state: RegistrationStateEnum.REGISTRATION_FAILED,
+            cause: event.cause);
+        _notifyRegsistrationStateListeners(_registerState);
       });
 
       this._ua.on(EventNewRTCSession(), (EventNewRTCSession event) {
@@ -188,55 +203,51 @@ class SIPUAHelper extends EventManager {
   Map<String, Object> _options([bool voiceonly = false]) {
     // Register callbacks to desired call events
     EventManager eventHandlers = EventManager();
-
-    eventHandlers.on(EventConnecting(), (EventConnecting event) {
+    eventHandlers.on(EventCallConnecting(), (EventCallConnecting event) {
       logger.debug('call connecting');
       _notifyCallStateListeners(CallState(CallStateEnum.CONNECTING));
     });
-
-    eventHandlers.on(EventProgress(), (EventProgress event) {
+    eventHandlers.on(EventCallProgress(), (EventCallProgress event) {
       logger.debug('call is in progress');
       _notifyCallStateListeners(
           CallState(CallStateEnum.PROGRESS, originator: event.originator));
     });
-
-    eventHandlers.on(EventFailed(), (EventFailed event) {
-      logger.debug('call failed with cause: ' + (event.cause));
+    eventHandlers.on(EventCallFailed(), (EventCallFailed event) {
+      logger.debug('call failed with cause: ' + (event.cause.toString()));
       _notifyCallStateListeners(CallState(CallStateEnum.FAILED,
           originator: event.originator, cause: event.cause));
       _session = null;
     });
-
-    eventHandlers.on(EventEnded(), (EventEnded e) {
-      logger.debug('call ended with cause: ' + (e.cause));
-      _notifyCallStateListeners(
-          CallState(CallStateEnum.ENDED, originator: e.originator));
+    eventHandlers.on(EventCallEnded(), (EventCallEnded e) {
+      logger.debug('call ended with cause: ' + (e.cause.toString()));
+      _notifyCallStateListeners(CallState(CallStateEnum.ENDED,
+          originator: e.originator, cause: e.cause));
       _session = null;
     });
     eventHandlers.on(EventCallAccepted(), (EventCallAccepted e) {
       logger.debug('call accepted');
       _notifyCallStateListeners(CallState(CallStateEnum.ACCEPTED));
     });
-    eventHandlers.on(EventConfirmed(), (EventConfirmed e) {
+    eventHandlers.on(EventCallConfirmed(), (EventCallConfirmed e) {
       logger.debug('call confirmed');
       _notifyCallStateListeners(CallState(CallStateEnum.CONFIRMED));
     });
-    eventHandlers.on(EventHold(), (EventHold e) {
+    eventHandlers.on(EventCallHold(), (EventCallHold e) {
       logger.debug('call hold');
       _notifyCallStateListeners(
           CallState(CallStateEnum.HOLD, originator: e.originator));
     });
-    eventHandlers.on(EventUnhold(), (EventUnhold e) {
+    eventHandlers.on(EventCallUnhold(), (EventCallUnhold e) {
       logger.debug('call unhold');
       _notifyCallStateListeners(
           CallState(CallStateEnum.UNHOLD, originator: e.originator));
     });
-    eventHandlers.on(EventMuted(), (EventMuted e) {
+    eventHandlers.on(EventCallMuted(), (EventCallMuted e) {
       logger.debug('call muted');
       _notifyCallStateListeners(
           CallState(CallStateEnum.MUTED, audio: e.audio, video: e.video));
     });
-    eventHandlers.on(EventUnmuted(), (EventUnmuted e) {
+    eventHandlers.on(EventCallUnmuted(), (EventCallUnmuted e) {
       logger.debug('call unmuted');
       _notifyCallStateListeners(
           CallState(CallStateEnum.UNMUTED, audio: e.audio, video: e.video));
@@ -248,6 +259,14 @@ class SIPUAHelper extends EventManager {
             stream: e.stream, originator: e.originator));
       });
     });
+    eventHandlers.on(EventCallRefer(), (EventCallRefer refer) async {
+      logger.debug('Refer received, Transfer current call to => ${refer.aor}');
+      _notifyCallStateListeners(CallState(CallStateEnum.REFER, refer: refer));
+      //Always accept.
+      refer.accept((session) {
+        logger.debug('New session initialized.');
+      }, this._options(true));
+    });
 
     var _defaultOptions = {
       'eventHandlers': eventHandlers,
@@ -255,13 +274,13 @@ class SIPUAHelper extends EventManager {
         'iceServers': [
           {'url': 'stun:stun.l.google.com:19302'},
           /*
-                  * turn server configuration example.
-                  {
-                    'url': 'turn:123.45.67.89:3478',
-                    'username': 'change_to_real_user',
-                    'credential': 'change_to_real_secret'
-                  },
-                  */
+           * turn server configuration example.
+            {
+              'url': 'turn:123.45.67.89:3478',
+              'username': 'change_to_real_user',
+              'credential': 'change_to_real_secret'
+            },
+          */
         ]
       },
       'mediaConstraints': {
@@ -352,10 +371,15 @@ class SIPUAHelper extends EventManager {
     _sipUaHelperListeners.remove(listener);
   }
 
-  void _notifyRegsistrationStateListeners(
-      RegistrationStateEnum state, String cause) {
+  void _notifyTransportStateListeners(TransportState state) {
     _sipUaHelperListeners.forEach((listener) {
-      listener.registrationStateChanged(state, cause);
+      listener.transportStateChanged(state);
+    });
+  }
+
+  void _notifyRegsistrationStateListeners(RegistrationState state) {
+    _sipUaHelperListeners.forEach((listener) {
+      listener.registrationStateChanged(state);
     });
   }
 
@@ -366,12 +390,8 @@ class SIPUAHelper extends EventManager {
   }
 }
 
-abstract class SipUaHelperListener {
-  void registrationStateChanged(RegistrationStateEnum state, String cause);
-  void callStateChanged(CallState state);
-}
-
 enum CallStateEnum {
+  NONE,
   STREAM,
   UNMUTED,
   MUTED,
@@ -381,30 +401,67 @@ enum CallStateEnum {
   ENDED,
   ACCEPTED,
   CONFIRMED,
+  REFER,
   HOLD,
   UNHOLD,
-  NONE,
   CALL_INITIATION
 }
 
 class CallState {
   CallStateEnum state;
+  ErrorCause cause;
   String originator;
-  String cause;
   bool audio;
   bool video;
   MediaStream stream;
-
+  EventCallRefer refer;
   CallState(this.state,
-      {this.originator, this.audio, this.video, this.stream, this.cause});
+      {this.originator,
+      this.audio,
+      this.video,
+      this.stream,
+      this.cause,
+      this.refer});
 }
 
 enum RegistrationStateEnum {
-  CONNECTING,
-  CONNECTED,
-  DISCONNECTED,
+  NONE,
   REGISTRATION_FAILED,
   REGISTERED,
   UNREGISTERED,
+}
+
+class RegistrationState {
+  RegistrationStateEnum state;
+  ErrorCause cause;
+  RegistrationState({this.state, this.cause});
+}
+
+enum TransportStateEnum {
   NONE,
+  CONNECTING,
+  CONNECTED,
+  DISCONNECTED,
+}
+
+class TransportState {
+  TransportStateEnum state;
+  ErrorCause cause;
+  TransportState(this.state, {this.cause});
+}
+
+abstract class SipUaHelperListener {
+  void transportStateChanged(TransportState state);
+  void registrationStateChanged(RegistrationState state);
+  void callStateChanged(CallState state);
+}
+
+class UaSettings {
+  String webSocketUrl;
+  Map<String, dynamic> webSocketExtraHeaders;
+
+  String uri;
+  String authorizationUser;
+  String password;
+  String displayName;
 }

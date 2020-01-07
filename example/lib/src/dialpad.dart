@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'widgets/numpad.dart';
 import 'package:sip_ua/sip_ua.dart';
+
+import 'utils/key_value_store.dart'
+    if (dart.library.js) 'utils/key_value_store_web.dart';
+import 'widgets/action_button.dart';
 
 class DialPadWidget extends StatefulWidget {
   final SIPUAHelper _helper;
@@ -16,7 +17,7 @@ class _MyDialPadWidget extends State<DialPadWidget>
   String _dest;
   SIPUAHelper get helper => widget._helper;
   TextEditingController _textController;
-  SharedPreferences prefs;
+  KeyValueStore _keyValueStore = KeyValueStore();
 
   @override
   initState() {
@@ -26,8 +27,9 @@ class _MyDialPadWidget extends State<DialPadWidget>
   }
 
   void _loadSettings() async {
-    prefs = await SharedPreferences.getInstance();
-    _dest = prefs.getString('dest') ?? 'sip:111_6ackea@tryit.jssip.net';
+    await _keyValueStore.init();
+    _dest =
+        _keyValueStore.getString('dest') ?? 'sip:hello_jssip@tryit.jssip.net';
     _textController = TextEditingController(text: _dest);
     _textController.text = _dest;
     this.setState(() {});
@@ -61,15 +63,15 @@ class _MyDialPadWidget extends State<DialPadWidget>
       return null;
     }
     helper.call(dest, voiceonly);
-    prefs.setString('dest', dest);
+    _keyValueStore.setString('dest', dest);
     return null;
   }
 
-  void _handleBackSpace() {
+  void _handleBackSpace([bool deleteAll = false]) {
     var text = _textController.text;
     if (text.isNotEmpty) {
       this.setState(() {
-        text = text.substring(0, text.length - 1);
+        text = deleteAll ? '' : text.substring(0, text.length - 1);
         _textController.text = text;
       });
     }
@@ -79,6 +81,46 @@ class _MyDialPadWidget extends State<DialPadWidget>
     this.setState(() {
       _textController.text += number;
     });
+  }
+
+  List<Widget> _buildNumPad() {
+    var lables = [
+      [
+        {'1': ''},
+        {'2': 'abc'},
+        {'3': 'def'}
+      ],
+      [
+        {'4': 'ghi'},
+        {'5': 'jkl'},
+        {'6': 'mno'}
+      ],
+      [
+        {'7': 'pqrs'},
+        {'8': 'tuv'},
+        {'9': 'wxyz'}
+      ],
+      [
+        {'*': ''},
+        {'0': '+'},
+        {'#': ''}
+      ],
+    ];
+
+    return lables
+        .map((row) => Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: row
+                    .map((label) => ActionButton(
+                          title: '${label.keys.first}',
+                          subTitle: '${label.values.first}',
+                          onPressed: () => _handleNum(label.keys.first),
+                          number: true,
+                        ))
+                    .toList())))
+        .toList();
   }
 
   List<Widget> _buildDialPad() {
@@ -101,29 +143,36 @@ class _MyDialPadWidget extends State<DialPadWidget>
                       controller: _textController,
                     )),
               ])),
-      NumPad(onPressed: (number) => _handleNum(number)),
       Container(
           width: 300,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              IconButton(
-                icon: Icon(Icons.videocam, color: Colors.grey),
-                onPressed: () => _handleCall(context),
-              ),
-              FloatingActionButton(
-                heroTag: "audio_call",
-                child: Icon(Icons.dialer_sip),
-                backgroundColor: Colors.green,
-                onPressed: () => _handleCall(context, true),
-              ),
-              IconButton(
-                icon: Icon(Icons.backspace, color: Colors.grey),
-                onPressed: () => _handleBackSpace(),
-              ),
-            ],
-          ))
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: _buildNumPad())),
+      Container(
+          width: 300,
+          child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  ActionButton(
+                    icon: Icons.videocam,
+                    onPressed: () => _handleCall(context),
+                  ),
+                  ActionButton(
+                    icon: Icons.dialer_sip,
+                    fillColor: Colors.green,
+                    onPressed: () => _handleCall(context, true),
+                  ),
+                  ActionButton(
+                    icon: Icons.keyboard_arrow_left,
+                    onPressed: () => _handleBackSpace(),
+                    onLongPress: () => _handleBackSpace(true),
+                  ),
+                ],
+              )))
     ];
   }
 
@@ -196,7 +245,7 @@ class _MyDialPadWidget extends State<DialPadWidget>
                     padding: const EdgeInsets.all(6.0),
                     child: Center(
                         child: Text(
-                      'Status: ${EnumHelper.getName(helper.registerState)}',
+                      'Status: ${EnumHelper.getName(helper.registerState.state)}',
                       style: TextStyle(fontSize: 14, color: Colors.black54),
                     )),
                   ),
@@ -210,9 +259,12 @@ class _MyDialPadWidget extends State<DialPadWidget>
   }
 
   @override
-  void registrationStateChanged(RegistrationStateEnum state, String cause) {
+  void registrationStateChanged(RegistrationState state) {
     this.setState(() {});
   }
+
+  @override
+  void transportStateChanged(TransportState state) {}
 
   @override
   void callStateChanged(CallState callState) {

@@ -1,8 +1,8 @@
-import 'package:sip_ua/src/UA.dart';
+import 'package:sip_ua/src/ua.dart';
 import 'package:test/test.dart';
 import 'package:sip_ua/sip_ua.dart';
-import 'package:sip_ua/src/Config.dart' as config;
-import 'package:sip_ua/src/WebSocketInterface.dart';
+import 'package:sip_ua/src/config.dart' as config;
+import 'package:sip_ua/src/websocket_interface.dart';
 import 'dart:async';
 import 'package:sip_ua/src/event_manager/event_manager.dart';
 
@@ -17,15 +17,15 @@ void main() {
     configuration.uri = 'sip:100@127.0.0.1';
     try {
       ua = new UA(configuration);
-      ua.on(EventConnecting(), (EventConnecting data) {
+      ua.on(EventSocketConnecting(), (EventSocketConnecting data) {
         print('connecting => ' + data.toString());
       });
 
-      ua.on(EventConnected, (EventConnected data) {
+      ua.on(EventSocketConnected, (EventSocketConnected data) {
         print('connected => ' + data.toString());
       });
 
-      ua.on(EventDisconnected, (EventDisconnected data) {
+      ua.on(EventSocketDisconnected, (EventSocketDisconnected data) {
         print('disconnected => ' + data.toString());
       });
       ua.start();

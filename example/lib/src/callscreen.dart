@@ -140,14 +140,17 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
       case CallStateEnum.UNHOLD:
       case CallStateEnum.NONE:
       case CallStateEnum.CALL_INITIATION:
+      case CallStateEnum.REFER:
         break;
     }
   }
 
   @override
-  void registrationStateChanged(RegistrationStateEnum state, String cause) {
-    //NO OP
-  }
+  void transportStateChanged(TransportState state) {}
+
+  @override
+  void registrationStateChanged(RegistrationState state) {}
+
   void _backToDialPad() {
     _timer.cancel();
     Timer(Duration(seconds: 2), () {
@@ -226,13 +229,54 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     }
   }
 
-  void _handleTransfer() {}
+  String _tansfer_target;
+  void _handleTransfer() {
+    showDialog<Null>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Enter target to transfer.'),
+          content: TextField(
+              onChanged: (String text) {
+                setState(() {
+                  _tansfer_target = text;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'URI or Username',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          actions: <Widget>[
+            FlatButton(
+              child: Text('Ok'),
+              onPressed: () {
+                helper.refer(_tansfer_target);
+                Navigator.of(context).pop();
+              },
+            ),
+            FlatButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleDtmf(String tone) {
+    print('Dtmf tone => $tone');
+    helper.sendDTMF(tone);
+  }
 
   void _handleKeyPad() {
     this.setState(() {
-      //_showNumPad = !_showNumPad;
+      _showNumPad = !_showNumPad;
     });
-    helper.sendDTMF('4654');
   }
 
   void _toggleSpeaker() {
@@ -240,6 +284,46 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
       _speakerOn = !_speakerOn;
       _localStream.getAudioTracks()[0].enableSpeakerphone(_speakerOn);
     }
+  }
+
+  List<Widget> _buildNumPad() {
+    var lables = [
+      [
+        {'1': ''},
+        {'2': 'abc'},
+        {'3': 'def'}
+      ],
+      [
+        {'4': 'ghi'},
+        {'5': 'jkl'},
+        {'6': 'mno'}
+      ],
+      [
+        {'7': 'pqrs'},
+        {'8': 'tuv'},
+        {'9': 'wxyz'}
+      ],
+      [
+        {'*': ''},
+        {'0': '+'},
+        {'#': ''}
+      ],
+    ];
+
+    return lables
+        .map((row) => Padding(
+            padding: const EdgeInsets.all(3),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: row
+                    .map((label) => ActionButton(
+                          title: '${label.keys.first}',
+                          subTitle: '${label.values.first}',
+                          onPressed: () => _handleDtmf(label.keys.first),
+                          number: true,
+                        ))
+                    .toList())))
+        .toList();
   }
 
   Widget _buildActionButtons() {
@@ -324,11 +408,19 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
 
           basicActions.add(hangupBtn);
 
-          basicActions.add(ActionButton(
-            title: "transfer",
-            icon: Icons.phone_forwarded,
-            onPressed: () => _handleTransfer(),
-          ));
+          if (_showNumPad) {
+            basicActions.add(ActionButton(
+              title: "back",
+              icon: Icons.keyboard_arrow_down,
+              onPressed: () => _handleKeyPad(),
+            ));
+          } else {
+            basicActions.add(ActionButton(
+              title: "transfer",
+              icon: Icons.phone_forwarded,
+              onPressed: () => _handleTransfer(),
+            ));
+          }
         }
         break;
       case CallStateEnum.FAILED:
@@ -346,6 +438,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     var actionWidgets = <Widget>[];
 
     if (_showNumPad) {
+      actionWidgets.addAll(_buildNumPad());
     } else {
       if (advanceActions.isNotEmpty) {
         actionWidgets.add(Padding(
