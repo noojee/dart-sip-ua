@@ -140,6 +140,7 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
       case CallStateEnum.UNHOLD:
       case CallStateEnum.NONE:
       case CallStateEnum.CALL_INITIATION:
+      case CallStateEnum.REFER:
         break;
     }
   }
@@ -228,7 +229,44 @@ class _MyCallScreenWidget extends State<CallScreenWidget>
     }
   }
 
-  void _handleTransfer() {}
+  String _tansfer_target;
+  void _handleTransfer() {
+    showDialog<Null>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Enter target to transfer.'),
+          content: TextField(
+              onChanged: (String text) {
+                setState(() {
+                  _tansfer_target = text;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'URI or Username',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          actions: <Widget>[
+            FlatButton(
+              child: Text('Ok'),
+              onPressed: () {
+                helper.refer(_tansfer_target);
+                Navigator.of(context).pop();
+              },
+            ),
+            FlatButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _handleDtmf(String tone) {
     print('Dtmf tone => $tone');

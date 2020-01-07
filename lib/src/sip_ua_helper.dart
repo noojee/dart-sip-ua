@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'package:flutter_webrtc/media_stream.dart';
+import 'package:flutter_webrtc/webrtc.dart';
 import 'package:logger/logger.dart';
 
-import 'Config.dart';
-import 'Message.dart';
-import 'RTCSession.dart';
-import 'Socket.dart';
-import 'UA.dart';
-import 'WebSocketInterface.dart';
+import 'config.dart';
+import 'message.dart';
+import 'rtc_session.dart';
+import 'socket.dart';
+import 'ua.dart';
+import 'websocket_interface.dart';
 import 'logger.dart';
 import 'event_manager/event_manager.dart';
 import 'stack_trace_nj.dart';
@@ -15,6 +15,7 @@ import 'stack_trace_nj.dart';
 class SIPUAHelper extends EventManager {
   UA _ua;
   Settings _settings;
+  UaSettings _uaSettings;
   final Log logger = Log();
   RTCSession _session;
   RegistrationState _registerState =
@@ -86,9 +87,9 @@ class SIPUAHelper extends EventManager {
     }
   }
 
-  Future<RTCSession> call(String uri, [bool voiceonly = false]) async {
+  Future<RTCSession> call(String target, [bool voiceonly = false]) async {
     if (_ua != null && _ua.isConnected()) {
-      _session = _ua.call(uri, this._options(voiceonly));
+      _session = _ua.call(target, this._options(voiceonly));
       return _session;
     } else {
       logger.error(
@@ -103,27 +104,41 @@ class SIPUAHelper extends EventManager {
     }
   }
 
+  void refer(String target) {
+    if (_session != null) {
+      var refer = _session.refer(target);
+      refer.on(EventReferTrying(), (EventReferTrying data) {});
+      refer.on(EventReferProgress(), (EventReferProgress data) {});
+      refer.on(EventReferAccepted(), (EventReferAccepted data) {
+        _session.terminate();
+      });
+      refer.on(EventReferFailed(), (EventReferFailed data) {});
+    }
+  }
+
   void hangup() {
     if (_session != null) {
       _session.terminate();
     }
   }
 
-  void start(String wsUrl, String uri,
-      [String password,
-      String displayName,
-      Map<String, dynamic> wsExtraHeaders]) async {
+  void start(UaSettings uaSettings) async {
     if (this._ua != null) {
       logger.warn(
           'UA instance already exist!, stopping UA and creating a new one...');
       this._ua.stop();
     }
+
+    _uaSettings = uaSettings;
+
     _settings = Settings();
-    var socket = WebSocketInterface(wsUrl, wsExtraHeaders);
+    var socket = WebSocketInterface(
+        uaSettings.webSocketUrl, uaSettings.webSocketExtraHeaders);
     _settings.sockets = [socket];
-    _settings.uri = uri;
-    _settings.password = password;
-    _settings.display_name = displayName;
+    _settings.uri = uaSettings.uri;
+    _settings.password = uaSettings.password;
+    _settings.display_name = uaSettings.displayName;
+    _settings.authorization_user = uaSettings.authorizationUser;
 
     try {
       this._ua = UA(_settings);
@@ -188,25 +203,21 @@ class SIPUAHelper extends EventManager {
   Map<String, Object> _options([bool voiceonly = false]) {
     // Register callbacks to desired call events
     EventManager eventHandlers = EventManager();
-
     eventHandlers.on(EventCallConnecting(), (EventCallConnecting event) {
       logger.debug('call connecting');
       _notifyCallStateListeners(CallState(CallStateEnum.CONNECTING));
     });
-
     eventHandlers.on(EventCallProgress(), (EventCallProgress event) {
       logger.debug('call is in progress');
       _notifyCallStateListeners(
           CallState(CallStateEnum.PROGRESS, originator: event.originator));
     });
-
     eventHandlers.on(EventCallFailed(), (EventCallFailed event) {
       logger.debug('call failed with cause: ' + (event.cause.toString()));
       _notifyCallStateListeners(CallState(CallStateEnum.FAILED,
           originator: event.originator, cause: event.cause));
       _session = null;
     });
-
     eventHandlers.on(EventCallEnded(), (EventCallEnded e) {
       logger.debug('call ended with cause: ' + (e.cause.toString()));
       _notifyCallStateListeners(CallState(CallStateEnum.ENDED,
@@ -247,6 +258,14 @@ class SIPUAHelper extends EventManager {
         _notifyCallStateListeners(CallState(CallStateEnum.STREAM,
             stream: e.stream, originator: e.originator));
       });
+    });
+    eventHandlers.on(EventCallRefer(), (EventCallRefer refer) async {
+      logger.debug('Refer received, Transfer current call to => ${refer.aor}');
+      _notifyCallStateListeners(CallState(CallStateEnum.REFER, refer: refer));
+      //Always accept.
+      refer.accept((session) {
+        logger.debug('New session initialized.');
+      }, this._options(true));
     });
 
     var _defaultOptions = {
@@ -372,6 +391,7 @@ class SIPUAHelper extends EventManager {
 }
 
 enum CallStateEnum {
+  NONE,
   STREAM,
   UNMUTED,
   MUTED,
@@ -381,9 +401,9 @@ enum CallStateEnum {
   ENDED,
   ACCEPTED,
   CONFIRMED,
+  REFER,
   HOLD,
   UNHOLD,
-  NONE,
   CALL_INITIATION
 }
 
@@ -394,15 +414,21 @@ class CallState {
   bool audio;
   bool video;
   MediaStream stream;
+  EventCallRefer refer;
   CallState(this.state,
-      {this.originator, this.audio, this.video, this.stream, this.cause});
+      {this.originator,
+      this.audio,
+      this.video,
+      this.stream,
+      this.cause,
+      this.refer});
 }
 
 enum RegistrationStateEnum {
+  NONE,
   REGISTRATION_FAILED,
   REGISTERED,
   UNREGISTERED,
-  NONE,
 }
 
 class RegistrationState {
@@ -412,10 +438,10 @@ class RegistrationState {
 }
 
 enum TransportStateEnum {
+  NONE,
   CONNECTING,
   CONNECTED,
   DISCONNECTED,
-  NONE,
 }
 
 class TransportState {
@@ -428,4 +454,14 @@ abstract class SipUaHelperListener {
   void transportStateChanged(TransportState state);
   void registrationStateChanged(RegistrationState state);
   void callStateChanged(CallState state);
+}
+
+class UaSettings {
+  String webSocketUrl;
+  Map<String, dynamic> webSocketExtraHeaders;
+
+  String uri;
+  String authorizationUser;
+  String password;
+  String displayName;
 }

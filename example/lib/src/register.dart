@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sip_ua/sip_ua.dart';
+
+import 'utils/key_value_store.dart'
+    if (dart.library.js) 'utils/key_value_store_web.dart';
 
 class RegisterWidget extends StatefulWidget {
   final SIPUAHelper _helper;
@@ -15,11 +17,12 @@ class _MyRegisterWidget extends State<RegisterWidget>
   String _wsUri;
   String _sipUri;
   String _displayName;
+  String _authorizationUser;
   Map<String, String> _wsExtraHeaders = {
     'Origin': ' https://tryit.jssip.net',
     'Host': 'tryit.jssip.net:10443'
   };
-  SharedPreferences prefs;
+  KeyValueStore _keyValueStore = KeyValueStore();
   RegistrationState _registerState;
 
   SIPUAHelper get helper => widget._helper;
@@ -40,21 +43,22 @@ class _MyRegisterWidget extends State<RegisterWidget>
   }
 
   void _loadSettings() async {
-    prefs = await SharedPreferences.getInstance();
+    await _keyValueStore.init();
     this.setState(() {
-      _wsUri = prefs.getString('ws_uri') ?? 'wss://tryit.jssip.net:10443';
-      _sipUri = prefs.getString('sip_uri') ?? 'hello_flutter@tryit.jssip.net';
-      _displayName = prefs.getString('display_name') ?? 'Flutter SIP UA';
-      _password = prefs.getString('password');
+      _wsUri = _keyValueStore.getString('ws_uri') ?? 'wss://tryit.jssip.net:10443';
+      _sipUri = _keyValueStore.getString('sip_uri') ?? 'hello_flutter@tryit.jssip.net';
+      _displayName = _keyValueStore.getString('display_name') ?? 'Flutter SIP UA';
+      _password = _keyValueStore.getString('password');
+      _authorizationUser = _keyValueStore.getString('auth_user');
     });
   }
 
   void _saveSettings() {
-    prefs.setString('ws_uri', _wsUri);
-    prefs.setString('sip_uri', _sipUri);
-    prefs.setString('display_name', _displayName);
-    prefs.setString('password', _password);
-    prefs.commit();
+    _keyValueStore.setString('ws_uri', _wsUri);
+    _keyValueStore.setString('sip_uri', _sipUri);
+    _keyValueStore.setString('display_name', _displayName);
+    _keyValueStore.setString('password', _password);
+    _keyValueStore.setString('auth_user', _authorizationUser);
   }
 
   @override
@@ -91,9 +95,17 @@ class _MyRegisterWidget extends State<RegisterWidget>
     } else if (_sipUri == null) {
       _alert(context, "SIP URI");
     }
-    bool addExtraHeaders = _wsExtraHeaders.isNotEmpty;
-    helper.start(_wsUri, _sipUri, _password, _displayName,
-        addExtraHeaders ? _wsExtraHeaders : null);
+
+    UaSettings settings = UaSettings();
+
+    settings.webSocketUrl = _wsUri;
+    settings.uri = _sipUri;
+    settings.authorizationUser = _authorizationUser;
+    settings.password = _password;
+    settings.displayName = _displayName;
+    settings.webSocketExtraHeaders = _wsExtraHeaders;
+
+    helper.start(settings);
   }
 
   @override
@@ -169,6 +181,36 @@ class _MyRegisterWidget extends State<RegisterWidget>
                           onChanged: (value) {
                             setState(() {
                               _sipUri = value;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  Column(
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(46.0, 18.0, 48.0, 0),
+                        child: Align(
+                          child: Text('Authorization User:'),
+                          alignment: Alignment.centerLeft,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(48.0, 0.0, 48.0, 0),
+                        child: TextField(
+                          keyboardType: TextInputType.text,
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            contentPadding: EdgeInsets.all(10.0),
+                            border: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.black12)),
+                            hintText: _authorizationUser ?? '[Empty]',
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _authorizationUser = value;
                             });
                           },
                         ),
